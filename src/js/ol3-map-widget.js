@@ -373,7 +373,7 @@
         // Remove any layer with the same id
         this.removeLayer(layer_info);
 
-        var layer = builder(layer_info);
+        var layer = builder.call(this, layer_info);
         var layers = this.map.getLayers();
         layers.insertAt(layers.getLength() - 1, layer);
 
@@ -394,6 +394,48 @@
         } else {
             return url;
         }
+    };
+
+    var addHeatmapLayer = function addHeatmapLayer(layer_info) {
+        // Get max weight value
+        var max = layer_info.features[0].weight;
+        for (var i = 1; i < layer_info.features.length; i++) {
+            if (layer_info.features.weight > max) {
+                max = layer_info.features.weight;
+            }
+        }
+
+        // Create features array
+        var features = [];
+        var parser = new ol.format.GeoJSON();
+        layer_info.features.forEach((feature, i) => {
+            features.push(new ol.Feature({"geometry": parser.readGeometry(feature.location).transform('EPSG:4326', 'EPSG:3857')}));
+            features[i].set("weight", feature.weight);
+        });
+
+        var options = {
+            blur: layer_info.blur,
+            radius: layer_info.radius,
+            source: new ol.source.Vector({
+                features: features
+            })
+        };
+        var heatmap = new ol.layer.Heatmap(options);
+
+        // Bind zoom change to update heatmap settings
+        this.map.getView().on('change:resolution', function (e) {
+            var zoom = this.map.getView().getZoom();
+            // Skip zoom steps
+            if (zoom !== Math.floor(zoom)) {
+                return;
+            }
+            // Calculate scale and apply it
+            var scale = Math.pow(2, this.map.getView().getZoom());
+            heatmap.setBlur(layer_info.blur * scale);
+            heatmap.setRadius(layer_info.radius * scale);
+        }.bind(this));
+
+        return heatmap;
     };
 
     var addImageWMSLayer = function addImageWMSLayer(layer_info) {
@@ -765,8 +807,9 @@
         "VectorTile": addVectorTileLayer,
         "WMTS": addWMTSLayer,
         "XYZ": addXYZLayer,
-        "Zoomify": addZoomifyLayer
-    }
+        "Zoomify": addZoomifyLayer,
+        "Heatmap": addHeatmapLayer
+    };
 
     window.Widget = Widget;
 
