@@ -410,12 +410,16 @@
         var parser = new ol.format.GeoJSON();
         layer_info.features.forEach((feature, i) => {
             features.push(new ol.Feature({"geometry": parser.readGeometry(feature.location).transform('EPSG:4326', 'EPSG:3857')}));
-            features[i].set("weight", feature.weight);
+            features[i].set("weight", feature.weight / max);
         });
+        var scale = Math.pow(2, this.map.getView().getZoom());
+
+        var blur = JSON.parse(JSON.stringify(layer_info.blur));
+        var radius = JSON.parse(JSON.stringify(layer_info.radius))
 
         var options = {
-            blur: layer_info.blur,
-            radius: layer_info.radius,
+            blur: Math.floor(blur * scale),
+            radius: Math.floor(radius * scale),
             source: new ol.source.Vector({
                 features: features
             })
@@ -431,8 +435,8 @@
             }
             // Calculate scale and apply it
             var scale = Math.pow(2, this.map.getView().getZoom());
-            heatmap.setBlur(layer_info.blur * scale);
-            heatmap.setRadius(layer_info.radius * scale);
+            heatmap.setBlur(Math.floor(blur * scale));
+            heatmap.setRadius(Math.floor(radius * scale));
         }.bind(this));
 
         return heatmap;
